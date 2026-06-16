@@ -58,16 +58,25 @@ Ascolta attentamente la registrazione di questa trattativa commerciale.
 In base alle regole e ai principi descritti nel seguente "Manuale operativo":
 ${manualText}
 
-Fornisci una recensione in italiano strutturata in:
+Assegna un "Voto" da 1 a 100 alla trattativa in base alla conformità con il manuale.
+Fornisci inoltre una recensione in italiano in formato Markdown, strutturata in:
 1. Sintesi della trattativa.
 2. Punti di forza (cosa ha fatto bene il commerciale).
 3. Aree di miglioramento (cosa mancava o è stato gestito male secondo il manuale).
 4. Suggerimenti pratici (cosa dire o fare al prossimo incontro).
-Restituisci il testo in formato Markdown.`;
+
+Devi restituire un oggetto JSON ESATTAMENTE con questa struttura:
+{
+  "score": <numero intero da 1 a 100>,
+  "feedback": "<Il testo della recensione in formato Markdown>"
+}`;
 
     console.log("Generating content...");
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
+      config: {
+        responseMimeType: "application/json",
+      },
       contents: [
         {
           role: "user",
@@ -87,18 +96,28 @@ Restituisci il testo in formato Markdown.`;
       console.warn("Could not delete file from Google AI", e);
     }
 
+    let resultJson = { score: 0, feedback: "Errore nella generazione." };
+    try {
+      if (response.text) {
+        resultJson = JSON.parse(response.text);
+      }
+    } catch (e) {
+      console.error("Failed to parse Gemini JSON:", e, response.text);
+      resultJson.feedback = response.text || "";
+    }
+
     // Save feedback to Supabase DB
     const { error: dbError } = await supabase
       .from('analyses')
       .insert([
-        { file_path: filePath, feedback: response.text }
+        { file_path: filePath, feedback: resultJson.feedback, score: resultJson.score }
       ]);
       
     if (dbError) {
       console.error("Error saving to DB:", dbError);
     }
 
-    return NextResponse.json({ feedback: response.text });
+    return NextResponse.json({ feedback: resultJson.feedback, score: resultJson.score });
 
   } catch (error: any) {
     console.error('AI Analysis Error:', error);

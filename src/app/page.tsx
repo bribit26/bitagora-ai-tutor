@@ -9,7 +9,7 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [showArchive, setShowArchive] = useState(false);
   const [archiveData, setArchiveData] = useState<any[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
@@ -124,7 +124,7 @@ export default function Home() {
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
       
-      setAnalysisResult(result.feedback);
+      setAnalysisResult(result);
       
     } catch (err: any) {
       console.error("Upload/Analysis error", err);
@@ -132,6 +132,37 @@ export default function Home() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const downloadAnalysis = (item: any) => {
+    const blob = new Blob([item.feedback], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analisi_trattativa_${new Date(item.created_at).toISOString().split('T')[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteAnalysis = async (id: string, filePath: string) => {
+    if (!supabase) return;
+    if (!confirm("Sei sicuro di voler eliminare definitivamente questa trattativa?")) return;
+    
+    const { error: dbError } = await supabase.from('analyses').delete().eq('id', id);
+    if (dbError) {
+      alert("Errore durante l'eliminazione dal DB: " + dbError.message);
+      return;
+    }
+    
+    await supabase.storage.from('recordings').remove([filePath]);
+    setArchiveData(prev => prev.filter(a => a.id !== id));
+  };
+
+  const getScoreColor = (score: number) => {
+    if (!score) return '#ccc';
+    if (score >= 80) return '#4caf50';
+    if (score >= 50) return '#ffeb3b';
+    return '#f44336';
   };
 
   const loadArchive = async () => {
@@ -170,8 +201,20 @@ export default function Home() {
           ) : (
             archiveData.map((item) => (
               <div key={item.id} className={styles.archiveCard}>
-                <p className={styles.archiveDate}>{new Date(item.created_at).toLocaleString('it-IT')}</p>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
+                  <p className={styles.archiveDate}>{new Date(item.created_at).toLocaleString('it-IT')}</p>
+                  {item.score && (
+                    <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                      <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: getScoreColor(item.score)}}></div>
+                      <strong>{item.score}/100</strong>
+                    </div>
+                  )}
+                </div>
                 <div className={styles.markdownContent} dangerouslySetInnerHTML={{ __html: item.feedback.replace(/\n/g, '<br/>') }}></div>
+                <div style={{display: 'flex', gap: '10px', marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                  <button onClick={() => downloadAnalysis(item)} style={{padding: '5px 15px', cursor: 'pointer', border: '1px solid #ccc', borderRadius: 5, background: 'none'}}>📥 Scarica</button>
+                  <button onClick={() => deleteAnalysis(item.id, item.file_path)} style={{padding: '5px 15px', cursor: 'pointer', border: '1px solid #ff4444', color: '#ff4444', borderRadius: 5, background: 'none'}}>🗑️ Elimina</button>
+                </div>
               </div>
             ))
           )}
@@ -184,7 +227,7 @@ export default function Home() {
     <main className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>BitAgorà Tutor</h1>
-        <button className={styles.settingsBtn}>⚙️</button>
+        <button className={styles.settingsBtn} onClick={loadArchive} title="Archivio Trattative" style={{cursor: 'pointer', fontSize: '1.2rem'}}>📁</button>
       </header>
       
       {!isRecording ? (
@@ -203,8 +246,16 @@ export default function Home() {
 
           {analysisResult && (
             <div className={styles.analysisCard}>
-              <h3>Feedback dell'AI Tutor</h3>
-              <div className={styles.markdownContent} dangerouslySetInnerHTML={{ __html: analysisResult.replace(/\n/g, '<br/>') }}></div>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <h3>Feedback dell'AI Tutor</h3>
+                {analysisResult.score && (
+                  <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                    <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: getScoreColor(analysisResult.score)}}></div>
+                    <strong>{analysisResult.score}/100</strong>
+                  </div>
+                )}
+              </div>
+              <div className={styles.markdownContent} dangerouslySetInnerHTML={{ __html: (analysisResult.feedback || analysisResult).replace(/\n/g, '<br/>') }}></div>
             </div>
           )}
         </div>

@@ -14,13 +14,15 @@ Questo file serve come "memoria" per riprendere esattamente da dove ci siamo fer
    - Salva l'analisi nel database Supabase.
 5. **Archivio e PWA**: Vista Archivio funzionante e PWA configurata per installazione su mobile.
 
-## 📝 Prossimi Passi (Per Lunedì)
-Il Minimum Viable Product (MVP) è concluso e testato con successo in locale.
-Lunedì potremo concentrarci su:
-1. **Rifiniture UI/UX**: Migliorare l'aspetto estetico, l'accessibilità o i feedback visivi durante l'attesa.
-2. **Sviluppi Funzionali**: Implementare nuove feature (es. logica di auth, filtri per l'archivio).
-3. **Deploy (Vercel)**: Preparare e lanciare l'app online così da poterla usare dal cellulare fuori dall'ufficio.
-4. **Ottimizzazione Avanzata Audio**: Valutare compilatori WebAssembly per OGG/MP3 se si vorrà comprimere il file sotto gli 0.3 MB/min.
+## 📝 Prossimi Passi
+L'MVP è stato concluso, testato con successo su mobile e **deploiato in produzione su Vercel** all'indirizzo: `https://bitagora-ai-tutor.vercel.app/`. 
+Inoltre il codice sorgente è versionato su GitHub (`bribit26/bitagora-ai-tutor`).
+
+Le prossime sfide e funzionalità su cui concentrarci sono:
+1. **Rifiniture UI/UX dell'Archivio e Menu**: Attualmente il bottone "Archivio" appare solo durante la registrazione, e c'è un'icona "Impostazioni" non funzionante sulla home. Occorre riorganizzare l'interfaccia iniziale per rendere l'Archivio facilmente accessibile, magari sostituendo o integrando l'icona ingranaggio.
+2. **Sviluppi Funzionali (Autenticazione)**: Implementare una logica di login/autenticazione. Attualmente tutte le analisi finiscono in un unico database visibile a tutti. Serve dividere i dati per singolo agente di vendita.
+3. **Filtri e Ricerca**: Aggiungere all'archivio una barra di ricerca o filtri per data, o punteggio della trattativa.
+4. **Ottimizzazione Avanzata Audio**: Valutare compilatori WebAssembly per OGG/MP3 se si vorrà comprimere ulteriormente il file sotto gli 0.3 MB/min in futuro.
 
 ---
-*Per riprendere il lavoro lunedì, ti basterà farmi leggere questo file `memory.md`!*
+*Per riprendere il lavoro in futuro, ti basterà farmi leggere questo file `memory.md`!*
