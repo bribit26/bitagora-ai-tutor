@@ -5,8 +5,8 @@ Questo file serve come "memoria" per riprendere esattamente da dove ci siamo fer
 
 ## 🎯 Stato Attuale (MVP COMPLETATO)
 1. **Inizializzazione Progetto**: Creata l'app Next.js (App Router) nella cartella `bitagora-ai-tutor` con UI Vanilla CSS minimalista e pulita.
-2. **Registrazione Audio**: Passati dalla `MediaRecorder API` alla libreria `RecordRTC`. Ora registriamo audio in **WAV Mono a 8kHz** (qualità telefono) che è perfettamente supportato dalle API di Gemini e occupa meno di 1 MB al minuto, ottimizzando enormemente lo spazio su Supabase.
-3. **Storage (Supabase)**: L'audio viene caricato direttamente nel bucket `recordings` (`src/lib/supabase.ts`).
+2. **Registrazione Audio**: Utilizziamo `RecordRTC` in modalità nativa per comprimere direttamente nel browser (in formato WebM Opus o MP4) con un bitrate bassissimo (24 kbps). Questo produce file super leggeri (circa 0.18 MB/min), ampiamente sotto il limite desiderato (0.3 MB/min) e ottimizza enormemente lo spazio per Supabase, permettendo di registrare audio di 90 minuti entro i 50MB.
+3. **Storage (Supabase)**: L'audio (ora compresso in .webm o .mp4) viene caricato direttamente nel bucket `recordings` (`src/lib/supabase.ts`).
 4. **AI Tutor Backend (`route.ts`)**: 
    - L'audio viene scaricato da Supabase e mandato a **Google Gen AI File API** con controllo di stato (polling su `PROCESSING` finché non diventa `ACTIVE`).
    - Utilizza il modello **Gemini 2.5 Flash** (i vecchi modelli sono stati dismessi sull'account API), che è iper-veloce e ha limiti gratuiti altissimi.
@@ -22,7 +22,7 @@ Le prossime sfide e funzionalità su cui concentrarci sono:
 1. **Rifiniture UI/UX dell'Archivio e Menu**: Attualmente il bottone "Archivio" appare solo durante la registrazione, e c'è un'icona "Impostazioni" non funzionante sulla home. Occorre riorganizzare l'interfaccia iniziale per rendere l'Archivio facilmente accessibile, magari sostituendo o integrando l'icona ingranaggio.
 2. **Sviluppi Funzionali (Autenticazione)**: Implementare una logica di login/autenticazione. Attualmente tutte le analisi finiscono in un unico database visibile a tutti. Serve dividere i dati per singolo agente di vendita.
 3. **Filtri e Ricerca**: Aggiungere all'archivio una barra di ricerca o filtri per data, o punteggio della trattativa.
-4. **Ottimizzazione Avanzata Audio**: Valutare compilatori WebAssembly per OGG/MP3 se si vorrà comprimere ulteriormente il file sotto gli 0.3 MB/min in futuro.
+4. **Ottimizzazione Avanzata Audio**: (COMPLETATA) Passaggio da WAV uncompressed a WebM/Opus / MP4 nativo con basso bitrate per restare sotto gli 0.3 MB/min, garantendo la compatibilità con il limite di 50MB di Supabase per sessioni lunghe.
 
 ---
 *Per riprendere il lavoro in futuro, ti basterà farmi leggere questo file `memory.md`!*

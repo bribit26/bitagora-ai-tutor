@@ -25,14 +25,20 @@ export async function POST(req: Request) {
     const arrayBuffer = await audioData.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Estrarre l'estensione del file dal path (es. .webm, .mp4, .wav)
+    const fileExt = path.extname(filePath) || '.wav';
+    const mimeType = fileExt === '.webm' ? 'audio/webm' :
+                     fileExt === '.mp4' ? 'audio/mp4' :
+                     fileExt === '.ogg' ? 'audio/ogg' : 'audio/wav';
+
     // Save to /tmp for Google Gen AI File API (supports large files > 20MB)
-    const tmpPath = path.join(os.tmpdir(), `audio-${Date.now()}.wav`);
+    const tmpPath = path.join(os.tmpdir(), `audio-${Date.now()}${fileExt}`);
     fs.writeFileSync(tmpPath, buffer);
 
     console.log("Uploading to Google Gen AI...");
     let fileInfo = await ai.files.upload({
       file: tmpPath,
-      config: { mimeType: 'audio/wav' },
+      config: { mimeType: mimeType },
     });
 
     console.log(`File uploaded. Initial state: ${fileInfo.state}`);
@@ -82,7 +88,7 @@ Devi restituire un oggetto JSON ESATTAMENTE con questa struttura:
           role: "user",
           parts: [
             { text: prompt },
-            { fileData: { fileUri: fileInfo.uri!, mimeType: fileInfo.mimeType || 'audio/wav' } }
+            { fileData: { fileUri: fileInfo.uri!, mimeType: fileInfo.mimeType || mimeType } }
           ]
         }
       ]

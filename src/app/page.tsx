@@ -44,19 +44,44 @@ export default function Home() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      const RecordRTC = (await import('recordrtc')).default;
-      const { StereoAudioRecorder } = await import('recordrtc');
-      
-      const recorder = new RecordRTC(stream, {
-        type: 'audio',
-        mimeType: 'audio/wav',
-        recorderType: StereoAudioRecorder,
-        numberOfAudioChannels: 1, // Mono
-        desiredSampRate: 8000, // 8kHz (qualità telefono) per dimezzare ulteriormente il peso
-      });
-      
+      let mimeType = '';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+      }
+
+      const options: any = { audioBitsPerSecond: 24000 };
+      if (mimeType) options.mimeType = mimeType;
+
+      const recorder = new MediaRecorder(stream, options);
+      const audioChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const finalMimeType = recorder.mimeType || mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: finalMimeType });
+        setIsRecording(false);
+        setIsPaused(false);
+        
+        await handleUpload(audioBlob);
+        
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
+
       mediaRecorderRef.current = recorder;
-      recorder.startRecording();
+      recorder.start(1000); // Raccoglie chunk ogni secondo per sicurezza
 
       setIsRecording(true);
       setIsPaused(false);
@@ -69,30 +94,20 @@ export default function Home() {
 
   const pauseRecording = () => {
     if (mediaRecorderRef.current) {
-      const state = mediaRecorderRef.current.getState();
+      const state = mediaRecorderRef.current.state;
       if (state === "recording") {
-        mediaRecorderRef.current.pauseRecording();
+        mediaRecorderRef.current.pause();
         setIsPaused(true);
       } else if (state === "paused") {
-        mediaRecorderRef.current.resumeRecording();
+        mediaRecorderRef.current.resume();
         setIsPaused(false);
       }
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stopRecording(async () => {
-        const audioBlob = mediaRecorderRef.current.getBlob();
-        setIsRecording(false);
-        setIsPaused(false);
-        
-        await handleUpload(audioBlob);
-        
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-        }
-      });
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
     }
   };
 
@@ -104,11 +119,16 @@ export default function Home() {
     
     setIsUploading(true);
     try {
-      const fileName = `rec_${new Date().toISOString().replace(/[:.]/g, "-")}.wav`;
+      let ext = 'webm';
+      if (audioBlob.type.includes('mp4')) ext = 'mp4';
+      else if (audioBlob.type.includes('wav')) ext = 'wav';
+      else if (audioBlob.type.includes('ogg')) ext = 'ogg';
+
+      const fileName = `rec_${new Date().toISOString().replace(/[:.]/g, "-")}.${ext}`;
       
       const { data, error } = await supabase.storage
         .from("recordings")
-        .upload(fileName, audioBlob, { contentType: "audio/wav" });
+        .upload(fileName, audioBlob, { contentType: audioBlob.type || `audio/${ext}` });
 
       if (error) throw error;
       
