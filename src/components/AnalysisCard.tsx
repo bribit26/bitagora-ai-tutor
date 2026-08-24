@@ -28,11 +28,16 @@ function getScoreColor(score: number) {
 
 export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const filename = item.file_path.split('/').pop() || 'registrazione';
     getRecordingSignedUrl(item.file_path).then((url) => {
       if (!cancelled) setAudioUrl(url);
+    });
+    getRecordingSignedUrl(item.file_path, filename).then((url) => {
+      if (!cancelled) setDownloadUrl(url);
     });
     return () => {
       cancelled = true;
@@ -68,9 +73,9 @@ export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
   };
 
   const downloadAudio = () => {
-    if (!audioUrl) return;
+    if (!downloadUrl) return;
     const a = document.createElement('a');
-    a.href = audioUrl;
+    a.href = downloadUrl;
     a.download = item.file_path.split('/').pop() || 'registrazione';
     a.click();
   };
@@ -101,7 +106,7 @@ export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
       )}
 
       <div className={styles.actionsRow}>
-        <button onClick={downloadAudio} disabled={!audioUrl} className={styles.actionBtn}>🎧 Scarica registrazione</button>
+        <button onClick={downloadAudio} disabled={!downloadUrl} className={styles.actionBtn}>🎧 Scarica registrazione</button>
         {item.transcript && (
           <button onClick={downloadTranscript} className={styles.actionBtn}>📄 Scarica trascrizione</button>
         )}
