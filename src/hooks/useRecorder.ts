@@ -15,6 +15,11 @@ export function useRecorder(onRecordingComplete: (blob: Blob) => void) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const onCompleteRef = useRef(onRecordingComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onRecordingComplete;
+  }, [onRecordingComplete]);
 
   useEffect(() => {
     if (isRecording && !isPaused) {
@@ -63,7 +68,7 @@ export function useRecorder(onRecordingComplete: (blob: Blob) => void) {
         setIsRecording(false);
         setIsPaused(false);
 
-        onRecordingComplete(audioBlob);
+        onCompleteRef.current(audioBlob);
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
