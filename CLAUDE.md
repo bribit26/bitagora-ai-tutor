@@ -1,5 +1,7 @@
 # BitAgorà AI Tutor — CLAUDE.md
 
+@AGENTS.md
+
 App di tutoraggio AI per i commerciali BitAgorà: registra le trattative
 commerciali (da smartphone in visita cliente, o da desktop su call Teams),
 le confronta con `src/lib/manuale.md` (le direttive di vendita BitAgorà) e
