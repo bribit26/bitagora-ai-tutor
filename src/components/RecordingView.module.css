@@ -1,0 +1,133 @@
+.recordingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  margin-top: 4rem;
+}
+
+.timer {
+  font-size: 3rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.5rem;
+}
+
+.recordingText {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 4rem;
+}
+
+.waveContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.wave {
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.5), transparent);
+  border-radius: 30px;
+  opacity: 0.5;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  padding-bottom: 2rem;
+}
+
+.controlBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.controlBtnPrimary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.iconCircle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconCirclePrimary {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-color: var(--foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--background);
+}
+
+.stopSquare {
+  width: 16px;
+  height: 16px;
+  background-color: var(--primary);
+  border-radius: 3px;
+}
+
+.pauseBars {
+  display: flex;
+  gap: 6px;
+}
+
+.pauseBar {
+  width: 5px;
+  height: 20px;
+  background-color: var(--background);
+  border-radius: 2px;
+}
+
+.recordDot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: var(--primary);
+}
+
+.menuLines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menuLine {
+  width: 18px;
+  height: 2px;
+  background-color: var(--foreground);
+}
+
+.controlLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.noteIcon {
+  font-size: 1.2rem;
+}
