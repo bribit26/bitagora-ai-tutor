@@ -1,0 +1,97 @@
+.card {
+  background-color: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: bold;
+}
+
+.scoreBadge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.scoreDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.notesBox {
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.notesLabel {
+  display: block;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.markdownContent {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.markdownContent strong {
+  color: var(--foreground);
+}
+
+.audioPlayer {
+  width: 100%;
+}
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.actionBtn {
+  padding: 5px 15px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  color: var(--foreground);
+  font-size: 0.85rem;
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteBtn {
+  padding: 5px 15px;
+  cursor: pointer;
+  border: 1px solid #ff4444;
+  color: #ff4444;
+  border-radius: 5px;
+  background: none;
+  font-size: 0.85rem;
+}
