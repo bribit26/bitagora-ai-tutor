@@ -1,13 +1,16 @@
 # PROGRESS — BitAgorà AI Tutor
 
-## Stato attuale (2026-08-24)
+## Stato attuale (2026-08-25)
 
 MVP completato a giugno 2026 (registrazione, analisi Gemini, archivio,
-PWA), deployato in produzione su Vercel. In questa sessione sono state
-aggiunte, tramite il flusso Superpowers (brainstorming → spec →
-writing-plans), tre funzionalità ispirate a Granola:
+PWA), deployato in produzione su Vercel. Il 2026-08-24 sono state aggiunte,
+tramite il flusso Superpowers (brainstorming → spec → writing-plans →
+subagent-driven-development), tre funzionalità ispirate a Granola:
 
-1. Riascolto e download della registrazione audio (URL firmati Supabase).
+1. Riascolto e download della registrazione audio (URL firmati Supabase,
+   uno per la riproduzione e uno separato con `Content-Disposition:
+   attachment` per il download vero e proprio, dato che un URL Supabase è
+   cross-origin e il solo attributo `download` dell'HTML viene ignorato).
 2. Download della trascrizione integrale (generata da Gemini nella stessa
    chiamata usata per il punteggio/feedback).
 3. Note di contesto inseribili prima e durante la registrazione, usate per
@@ -21,12 +24,49 @@ stato scomposto in componenti dedicati sotto `src/components/` e un hook
 Spec e piano di questo lavoro: `docs/superpowers/specs/2026-08-24-tutor-debrief-features-design.md`
 e `docs/superpowers/plans/2026-08-24-tutor-debrief-features.md`.
 
-**Non testato end-to-end con credenziali reali in questa sessione** (nessuna
-chiave Supabase/Gemini condivisa). Verificato solo `npm run build` +
-`npm run lint` + ispezione dei diff. Il test reale (registrare, verificare
-trascrizione/note/player, applicare `supabase_update_v2.sql` su Supabase)
-resta da fare a Daniele prima del deploy in produzione — vedi la checklist
-in Task 12 del piano di implementazione.
+**Implementazione completata, revisionata e mergiata in locale su `main`**
+(commit `0422aa4`, 16 commit totali: 12 task del piano + 5 fix da una review
+finale sull'intero branch). La review finale aveva trovato e fatto
+correggere:
+- **1 bug Critical**: le note scritte tramite l'overlay *durante* la
+  registrazione venivano scartate (closure "stale" su `onRecordingComplete`
+  in `useRecorder.ts`) — solo le note scritte *prima* di iniziare
+  arrivavano davvero all'analisi. Risolto con un ref sempre aggiornato.
+- **4 Important**: download registrazione che apriva una scheda invece di
+  scaricare (vedi punto 1 sopra); note di contesto iniettate senza
+  delimitatori nel prompt Gemini (ora avvolte in `<contesto_commerciale>`
+  con istruzione esplicita di non trattarle come comandi); una frase in
+  `OVERVIEW.md` che sovrastimava la robustezza del fallback su JSON
+  troncato (corretta); l'import `@AGENTS.md` perso nella riscrittura di
+  `CLAUDE.md` (ripristinato).
+
+Restano **7 note Minor**, non bloccanti, non ancora affrontate: note
+composte di soli spazi vengono comunque salvate come non vuote; il render
+del feedback non ha un guard se Gemini omettesse il campo `feedback`;
+l'archivio fa una richiesta di URL firmato per ogni card in parallelo (può
+diventare pesante con molte trattative); gli URL firmati scadono dopo 1h
+senza refresh automatico; `AnalysisCard` non azzera l'URL audio se cambia
+`file_path` senza smontare il componente; `NotesOverlay` non si chiude con
+Esc e non ha ruolo ARIA da dialog; `NotesInput` ha un `id` fisso (rischio
+solo se due istanze fossero mai montate insieme, oggi non succede).
+
+**Non ancora pushato su GitHub** (`origin/main`): il branch locale `main`
+è avanti di 20 commit rispetto a `origin/main`. **Non testato end-to-end
+con credenziali reali** in questa sessione (nessuna chiave Supabase/Gemini
+condivisa) — solo `npx tsc --noEmit` + `npm run lint` + `npm run build`,
+tutti puliti, e ispezione dei diff a ogni task.
+
+## Prossimo passo (da riprendere)
+
+1. Applicare `supabase_update_v2.sql` da SQL Editor su Supabase (aggiunge
+   `context_notes` e `transcript`, nullable, non distruttivo — non ancora
+   fatto).
+2. Eseguire la checklist di verifica manuale end-to-end del Task 12 del
+   piano (`docs/superpowers/plans/2026-08-24-tutor-debrief-features.md`) —
+   copre esplicitamente anche i due bug corretti dalla review (note a metà
+   chiamata, download reale su mobile).
+3. Decidere se e quando fare `git push` di `main` (o aprire prima una PR
+   per una preview Vercel) — nessun push è stato fatto finora.
 
 ## Prossimi passi (ereditati dal vecchio memory.md, ancora aperti)
 
@@ -42,5 +82,9 @@ in Task 12 del piano di implementazione.
 - Pacchetto di download "debrief combinato" (audio + trascrizione + report
   in un unico file), scartato per ora per tenere lo scope contenuto.
 - Se le trascrizioni su chiamate molto lunghe (~90 min) risultano tagliate,
-  valutare di passare a una chiamata Gemini dedicata solo alla trascrizione
-  (opzione già scartata in fase di spec per non raddoppiare tempo/costo).
+  valutare di passare a una chiamata Gemini dedicata solo alla trascrizione,
+  o a un output strutturato (`responseSchema`) invece del solo prompt
+  descrittivo (opzione già scartata in fase di spec per non raddoppiare
+  tempo/costo; `maxOutputTokens` è già impostato al massimo consentito dal
+  modello, ma coincide col default quindi non riduce davvero il rischio).
+- Le 7 note Minor elencate sopra in "Stato attuale".
