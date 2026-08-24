@@ -53,9 +53,11 @@ Unico endpoint API. Riceve `{filePath, contextNotes}`:
 4. Una singola chiamata a Gemini 2.5 Flash con `responseMimeType:
    "application/json"`, che deve restituire `{score, feedback, transcript}`.
 5. Se il parsing JSON fallisce (risposta troncata o malformata), fallback:
-   salva comunque il testo grezzo come `feedback`, `transcript` resta
-   `null` — l'analisi non fallisce del tutto per un problema di sola
-   trascrizione.
+   `score` resta `0` (nessun badge voto in UI) e `feedback` diventa il testo
+   grezzo restituito da Gemini — che può essere JSON troncato, renderizzato
+   comunque via `dangerouslySetInnerHTML` — mentre `transcript` resta
+   `null`. Non è un fallback "pulito": l'analisi non va in errore HTTP, ma
+   voto e feedback non sono realmente utilizzabili in quel caso.
 6. Salva tutto in Supabase (`analyses`: `file_path`, `feedback`, `score`,
    `context_notes`, `transcript`) e lo restituisce al frontend.
 
