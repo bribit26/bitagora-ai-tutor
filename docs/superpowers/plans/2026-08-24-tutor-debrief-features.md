@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- TypeScript strict mode is on (`tsconfig.json`) — new code must typecheck under `npx tsc --noEmit`. Matching the existing codebase's own looseness (e.g. `useRef<any>` for the MediaRecorder instance) is acceptable where the original code already did it; don't introduce new `any` beyond that pattern.
+- TypeScript strict mode is on (`tsconfig.json`) — new code must typecheck under `npx tsc --noEmit`. Do not use `any`: the task code blocks below use `unknown` + `error instanceof Error` in catch blocks and proper DOM types (`MediaRecorder | null`, `MediaRecorderOptions`) instead of the `any` the original code used in those exact spots — this was tightened during pre-flight review specifically so `npm run lint` can report zero errors (see the pre-flight finding below).
 - **No test framework is configured in this project** (no jest/vitest/testing-library in `package.json`). Do not add one as part of this plan — it's out of scope. Verification per task is `npx tsc --noEmit` + `npm run lint`, plus a final manual end-to-end checklist (Task 12) for the user, per the spec's Testing section.
 - Follow the existing CSS Modules pattern: one `*.module.css` file colocated with each component/page, reusing the CSS variables already defined in `src/app/globals.css` (`--background`, `--foreground`, `--primary`, `--border`, `--text-muted`, `--surface`) instead of hardcoding new colors, except where matching an existing hardcoded value (e.g. score colors `#4caf50`/`#ffeb3b`/`#f44336`, delete-button red `#ff4444`).
 - All user-facing strings (labels, buttons, alerts) are in Italian, matching the existing UI.
@@ -18,6 +18,7 @@
 - Network calls (Supabase queries, `fetch('/api/analyze')`) stay centralized in `src/app/page.tsx`; components under `src/components/` are presentational and receive data/callbacks via props, except the small shared helper `src/lib/audioUrl.ts` which owns the signed-URL call so it isn't duplicated.
 - Package manager is npm (`package-lock.json` present, no yarn/pnpm lockfile).
 - Repo location: `C:\Users\DanieleBrini\Documents\CLAUDE\bitagora-ai-tutor` (already a working git clone of `bribit26/bitagora-ai-tutor`, branch `main`). No real Supabase/Gemini credentials are available in this session — do not attempt to create `.env.local` with real keys or run `npm run dev` against live services.
+- **Pre-flight finding (discovered before Task 1 execution):** the baseline (unmodified) code does not pass `npm run build` or `npm run lint` cleanly. (1) `route.ts` builds `createClient()` at module scope from `process.env.NEXT_PUBLIC_SUPABASE_URL || ''` with no guard, which throws during Next.js's page-data collection step if the URL is empty — a placeholder (non-secret) `.env.local` was added to the worktree (gitignored via the existing `.env*` rule) purely so `npm run build` can complete structurally; this is not part of any task's file list and needs no action from implementers. (2) `npm run lint` on the unmodified baseline already reports 9 errors (`@typescript-eslint/no-explicit-any` on 8 lines across `page.tsx` and `route.ts`, one `react/no-unescaped-entities` in `page.tsx`) plus 2 pre-existing warnings in `public/sw.js` (unrelated, out of scope, not touched by this plan). Since Tasks 2, 4, and 10 fully rewrite the files carrying those `any` usages anyway, their code below now uses proper types (`unknown` + `error instanceof Error` in catch blocks, `MediaRecorder | null` and `MediaRecorderOptions` instead of `any`) so the plan's stated "no errors" bar is genuinely achievable — the two `public/sw.js` warnings are the only expected non-zero `npm run lint` output through Task 11, and are not this plan's concern.
 
 ---
 
@@ -223,9 +224,10 @@ Devi restituire un oggetto JSON ESATTAMENTE con questa struttura:
       transcript: resultJson.transcript || null,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('AI Analysis Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 ```
@@ -330,7 +332,7 @@ export function useRecorder(onRecordingComplete: (blob: Blob) => void) {
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
-  const mediaRecorderRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -363,7 +365,7 @@ export function useRecorder(onRecordingComplete: (blob: Blob) => void) {
         }
       }
 
-      const options: any = { audioBitsPerSecond: 24000 };
+      const options: MediaRecorderOptions = { audioBitsPerSecond: 24000 };
       if (mimeType) options.mimeType = mimeType;
 
       const recorder = new MediaRecorder(stream, options);
@@ -1338,9 +1340,10 @@ export default function Home() {
         context_notes: notes || null,
       });
       setNotes("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Upload/Analysis error", err);
-      alert("Errore durante l'elaborazione: " + err.message);
+      const message = err instanceof Error ? err.message : String(err);
+      alert("Errore durante l'elaborazione: " + message);
     } finally {
       setIsUploading(false);
     }
@@ -1379,9 +1382,10 @@ export default function Home() {
       if (error) throw error;
       setArchiveData(data || []);
       setShowArchive(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading archive", err);
-      alert("Errore caricamento archivio: " + err.message);
+      const message = err instanceof Error ? err.message : String(err);
+      alert("Errore caricamento archivio: " + message);
     } finally {
       setIsLoadingArchive(false);
     }
