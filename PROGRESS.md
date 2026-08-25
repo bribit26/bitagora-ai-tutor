@@ -50,23 +50,23 @@ senza refresh automatico; `AnalysisCard` non azzera l'URL audio se cambia
 Esc e non ha ruolo ARIA da dialog; `NotesInput` ha un `id` fisso (rischio
 solo se due istanze fossero mai montate insieme, oggi non succede).
 
-**Non ancora pushato su GitHub** (`origin/main`): il branch locale `main`
-è avanti di 20 commit rispetto a `origin/main`. **Non testato end-to-end
-con credenziali reali** in questa sessione (nessuna chiave Supabase/Gemini
-condivisa) — solo `npx tsc --noEmit` + `npm run lint` + `npm run build`,
-tutti puliti, e ispezione dei diff a ogni task.
+**Pushato su GitHub e verificato funzionante.** `main` locale è stato
+pushato su `origin/main` (`623a01b..282e03a`, 21 commit). Daniele ha
+applicato `supabase_update_v2.sql` da SQL Editor e fatto il test manuale:
+tutto funziona (registrazione, note pre/durante-call, riascolto/download,
+trascrizione, archivio).
 
-## Prossimo passo (da riprendere)
+**Decisione 2026-08-25: restare su Gemini, nessuna integrazione Claude.**
+Proposto di dividere la pipeline (Gemini per trascrizione audio→testo,
+Claude per il giudizio punteggio/feedback sul testo, per ridurre il danno
+di un eventuale troncamento su call molto lunghe) — Daniele ha deciso di
+non procedere per ora: siamo in fase di test interna con pochi dati
+attesi, niente costi aggiuntivi anche minimi in questa fase, si osserva
+prima se il consumo/troncamento token di Gemini è un problema reale con
+l'uso vero. Non riproporre l'aggiunta di Claude finché non emergono
+problemi concreti o Daniele non lo richiede di nuovo.
 
-1. Applicare `supabase_update_v2.sql` da SQL Editor su Supabase (aggiunge
-   `context_notes` e `transcript`, nullable, non distruttivo — non ancora
-   fatto).
-2. Eseguire la checklist di verifica manuale end-to-end del Task 12 del
-   piano (`docs/superpowers/plans/2026-08-24-tutor-debrief-features.md`) —
-   copre esplicitamente anche i due bug corretti dalla review (note a metà
-   chiamata, download reale su mobile).
-3. Decidere se e quando fare `git push` di `main` (o aprire prima una PR
-   per una preview Vercel) — nessun push è stato fatto finora.
+**Sessione chiusa qui per ora.** Nessun lavoro aperto in sospeso.
 
 ## Prossimi passi (ereditati dal vecchio memory.md, ancora aperti)
 
