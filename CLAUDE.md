@@ -21,7 +21,7 @@ e i prossimi passi vedi **`PROGRESS.md`**.
   Vercel: https://bitagora-ai-tutor.vercel.app/
 - **Storage/DB**: Supabase (bucket `recordings` per l'audio, tabella
   `analyses` per i risultati)
-- **AI**: Google Gemini 2.5 Flash via `@google/genai`, tramite Google GenAI
+- **AI**: Google Gemini 3.8 Flash (`gemini-3.8-flash`) via `@google/genai`, tramite Google GenAI
   File API per gestire audio anche lunghi (fino a 90 minuti)
 - **Registrazione audio**: `MediaRecorder` nativo del browser, webm/opus a
   24kbps (~0.18 MB/min)

@@ -1,5 +1,35 @@
 # PROGRESS — BitAgorà AI Tutor
 
+## Fix 2026-09-25: voti inventati su registrazioni vuote
+
+Una registrazione di prova (solo "ciao", fatta per tenere attivo Supabase)
+ha ricevuto 78/100 con una trattativa interamente inventata. Causa: il
+prompt imponeva sempre un voto 1-100, senza via d'uscita per audio non
+valutabile, e chiedeva la trascrizione *dopo* la valutazione. Correzioni
+in `src/app/api/analyze/route.ts`:
+- `responseSchema` con `propertyOrdering`: la trascrizione viene generata
+  per prima, poi `valutabile`, `score` (nullable), `feedback`.
+- Prompt con istruzioni esplicite di non inventare e di restituire
+  `valutabile: false` + `score: null` se non c'è una trattativa reale.
+- Rete di sicurezza server: sotto 40 parole trascritte il voto viene
+  sempre azzerato (`null`) e il feedback sostituito da "non valutabile".
+- **Migrazione da `gemini-2.5-flash` a `gemini-3.8-flash`.** Il 2.5 va in
+  dismissione (shutdown non prima del 16/10/2026, accesso limitato dal
+  18/09/2026). Il cambio di comportamento (voti inventati dove fino a
+  lunedì 21/09 rispondeva correttamente, con codice e audio invariati) è
+  probabilmente legato a questo, anche se non documentato da Google.
+  Scelto 3.8 Flash: stesso prezzo di 3.6/3.7 Flash, tutti con free tier;
+  i limiti del free tier non sono pubblicati (si vedono solo in AI Studio);
+  è il Flash raccomandato da Google per nuovi progetti e il più lontano
+  dalla dismissione. Supporta audio, 64k token di output. Nessuna
+  temperature impostata: per Gemini 3 Google raccomanda di lasciare il
+  default (valori bassi possono causare loop). SDK `@google/genai` 2.8.0
+  già compatibile, non aggiornato.
+- **Da verificare dopo il deploy**: test con un "ciao" (deve risultare non
+  valutabile) e con una trattativa reale/simulata (deve essere valutata).
+Nessuna migrazione DB necessaria (`score` era già nullable, la UI nasconde
+già il badge se il voto manca).
+
 ## Stato attuale (2026-08-25)
 
 MVP completato a giugno 2026 (registrazione, analisi Gemini, archivio,

@@ -50,10 +50,14 @@ Unico endpoint API. Riceve `{filePath, contextNotes}`:
    `contextNotes` non è vuoto) una sezione che chiede a Gemini di tenerne
    conto nella valutazione — es. non penalizzare l'assenza di una fase se il
    contesto dice che è già stata svolta prima.
-4. Una singola chiamata a Gemini 2.5 Flash con `responseMimeType:
-   "application/json"`, che deve restituire `{score, feedback, transcript}`.
+4. Una singola chiamata a Gemini 3.8 Flash con `responseSchema` che impone
+   l'ordine `{transcript, valutabile, score, feedback}`: la trascrizione
+   viene generata per prima e la valutazione poggia su di essa. Se l'audio
+   non contiene una trattativa reale, `valutabile: false` e `score: null`.
+   Rete di sicurezza server: sotto 40 parole trascritte il voto viene
+   sempre azzerato e il feedback sostituito da "non valutabile".
 5. Se il parsing JSON fallisce (risposta troncata o malformata), fallback:
-   `score` resta `0` (nessun badge voto in UI) e `feedback` diventa il testo
+   `score` resta `null` (nessun badge voto in UI) e `feedback` diventa il testo
    grezzo restituito da Gemini — che può essere JSON troncato, renderizzato
    comunque via `dangerouslySetInnerHTML` — mentre `transcript` resta
    `null`. Non è un fallback "pulito": l'analisi non va in errore HTTP, ma

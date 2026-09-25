@@ -9,7 +9,7 @@ export interface AnalysisItem {
   created_at?: string;
   file_path: string;
   feedback: string;
-  score: number;
+  score: number | null;
   context_notes?: string | null;
   transcript?: string | null;
 }
@@ -19,7 +19,7 @@ export interface AnalysisCardProps {
   onDelete?: (id: string, filePath: string) => void;
 }
 
-function getScoreColor(score: number) {
+function getScoreColor(score: number | null) {
   if (!score) return '#ccc';
   if (score >= 80) return '#4caf50';
   if (score >= 50) return '#ffeb3b';
