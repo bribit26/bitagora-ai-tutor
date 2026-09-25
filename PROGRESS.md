@@ -29,8 +29,8 @@ in `src/app/api/analyze/route.ts`:
   ha risposto 503 "high demand" (sovraccarico lato Google, frequente sul
   free tier), e poi 503 anche su 3.6 Flash in modo persistente. Ora
   `generateWithRetry` in `src/lib/analysisJob.ts` prova in ordine
-  3.8 Flash → 3.7 Flash → 3.6 Flash → 3.5 Flash-Lite → 2.5 Flash (ultima
-  riserva fino allo shutdown), passando al successivo su 404/429/5xx; i
+  3.8 Flash → 3.7 Flash → 3.6 Flash → 3.5 Flash-Lite (2.5 Flash tolto
+  per scelta di Daniele: in dismissione, si testano solo i modelli nuovi), passando al successivo su 404/429/5xx; i
   file temporanei vengono ripuliti anche in caso di errore. `last_error`
   elenca l'esito di ogni modello.
 - **Nessuna trattativa persa se l'analisi fallisce.** La riga `analyses`

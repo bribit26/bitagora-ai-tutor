@@ -21,14 +21,11 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Catena di modelli in ordine di preferenza: si passa al successivo se il
 // precedente è sovraccarico (503 "high demand", frequentissimo sul free tier
 // per i Flash più recenti) o non disponibile per questo account (404).
-// gemini-2.5-flash resta come ultima riserva finché Google non lo spegne
-// (non prima del 16/10/2026): da quel momento risponderà 404 e verrà saltato.
 const MODELS = [
   'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
-  'gemini-2.5-flash',
 ];
 const RETRY_DELAY_MS = 2000;
 
