@@ -36,7 +36,12 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := 'https://bitagora-ai-tutor.vercel.app/api/retry-pending',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer INCOLLA_QUI_IL_CRON_SECRET"}'::jsonb,
+    -- jsonb_build_object invece di JSON scritto a mano: incollando il secret
+    -- è facile rompere virgolette/graffe ("invalid input syntax for type json").
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer INCOLLA_QUI_IL_CRON_SECRET'
+    ),
     body := '{}'::jsonb
   );
   $$
