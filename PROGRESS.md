@@ -25,12 +25,14 @@ in `src/app/api/analyze/route.ts`:
   temperature impostata: per Gemini 3 Google raccomanda di lasciare il
   default (valori bassi possono causare loop). SDK `@google/genai` 2.8.0
   già compatibile, non aggiornato.
-- **Retry + modello di riserva.** Al primo test in produzione il 3.8 Flash
+- **Retry + catena di modelli di riserva.** Al primo test in produzione il 3.8 Flash
   ha risposto 503 "high demand" (sovraccarico lato Google, frequente sul
-  free tier). Ora `generateWithRetry` in `route.ts` fa 2 tentativi su
-  `gemini-3.8-flash` e poi 2 su `gemini-3.6-flash` (solo per errori
-  429/500/503/504, con attesa crescente), e i file temporanei vengono
-  ripuliti anche in caso di errore.
+  free tier), e poi 503 anche su 3.6 Flash in modo persistente. Ora
+  `generateWithRetry` in `src/lib/analysisJob.ts` prova in ordine
+  3.8 Flash → 3.7 Flash → 3.6 Flash → 3.5 Flash-Lite → 2.5 Flash (ultima
+  riserva fino allo shutdown), passando al successivo su 404/429/5xx; i
+  file temporanei vengono ripuliti anche in caso di errore. `last_error`
+  elenca l'esito di ogni modello.
 - **Nessuna trattativa persa se l'analisi fallisce.** La riga `analyses`
   viene creata subito dopo l'upload (`pending`); se l'analisi fallisce resta
   in archivio con stato visibile e "Riprova ora", e un job pg_cron su

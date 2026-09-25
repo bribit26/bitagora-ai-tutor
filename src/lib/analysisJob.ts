@@ -18,35 +18,44 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // gemini-2.5-flash va in dismissione (shutdown da ottobre 2026).
 // Nota Gemini 3: Google sconsiglia di impostare temperature/top_p/top_k
 // (lasciare i default); il thinking level di default è "medium".
-// Il primo modello è quello preferito; il secondo è una riserva usata solo
-// se il primo è sovraccarico (503 "high demand", frequente sul free tier).
-const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash'];
-const ATTEMPTS_PER_MODEL = 2;
-const RETRY_DELAY_MS = 3000;
+// Catena di modelli in ordine di preferenza: si passa al successivo se il
+// precedente è sovraccarico (503 "high demand", frequentissimo sul free tier
+// per i Flash più recenti) o non disponibile per questo account (404).
+// gemini-2.5-flash resta come ultima riserva finché Google non lo spegne
+// (non prima del 16/10/2026): da quel momento risponderà 404 e verrà saltato.
+const MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash',
+];
+const RETRY_DELAY_MS = 2000;
 
-// Errori temporanei lato Google per cui ha senso riprovare.
-function isTransientError(e: unknown) {
-  return e instanceof ApiError && [429, 500, 503, 504].includes(e.status);
+// Errori per cui ha senso provare il modello successivo: sovraccarico o
+// errori temporanei lato Google, oppure modello non disponibile.
+function isRetryableError(e: unknown) {
+  return e instanceof ApiError && [404, 429, 500, 503, 504].includes(e.status);
 }
 
 async function generateWithRetry(params: Omit<GenerateContentParameters, 'model'>) {
   let lastError: unknown;
+  const failures: string[] = [];
   for (const model of MODELS) {
-    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
-      try {
-        const response = await ai.models.generateContent({ ...params, model });
-        console.log(`Generated with ${model} (attempt ${attempt})`);
-        return response;
-      } catch (e) {
-        if (!isTransientError(e)) throw e;
-        lastError = e;
-        console.warn(`${model} attempt ${attempt} failed (${(e as ApiError).status}), retrying...`);
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt));
-      }
+    try {
+      const response = await ai.models.generateContent({ ...params, model });
+      console.log(`Generated with ${model}`);
+      return response;
+    } catch (e) {
+      if (!isRetryableError(e)) throw e;
+      lastError = e;
+      failures.push(`${model}: ${(e as ApiError).status}`);
+      console.warn(`${model} failed (${(e as ApiError).status}), trying next model...`);
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
     }
   }
   throw new Error(
-    "I modelli AI di Google sono momentaneamente sovraccarichi e l'analisi non è riuscita. Riprova tra qualche minuto. (" +
+    `I modelli AI di Google sono momentaneamente sovraccarichi e l'analisi non è riuscita [${failures.join(', ')}]. (` +
     (lastError instanceof Error ? lastError.message : String(lastError)) + ")"
   );
 }
@@ -146,7 +155,7 @@ Prima di valutare, decidi se la registrazione contiene davvero una conversazione
         },
         // La trascrizione integrale di una chiamata fino a 90 minuti può
         // essere lunga: alziamo il tetto di output per ridurre il rischio
-        // di troncamento JSON (max supportato da gemini-3.8/3.6-flash; include
+        // di troncamento JSON (max supportato dai modelli della catena; include
         // anche i token di "thinking").
         maxOutputTokens: 65536,
       },

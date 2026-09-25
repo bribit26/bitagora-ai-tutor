@@ -59,8 +59,7 @@ presa in carico è ottimistica (update condizionato su `status` e
 `processing_started_at`), così analisi manuale e job non lavorano mai in
 parallelo sulla stessa riga.
 
-Chiamata a Gemini (`generateWithRetry`): 2 tentativi su `gemini-3.8-flash`
-e poi 2 su `gemini-3.6-flash`, solo per errori temporanei 429/500/503/504.
+Chiamata a Gemini (`generateWithRetry`): catena 3.8 Flash → 3.7 Flash → 3.6 Flash → 3.5 Flash-Lite → 2.5 Flash, un tentativo per modello, si passa al successivo su 404/429/5xx.
 
 Passi di `analyzeRecording(filePath, contextNotes)`:
 
