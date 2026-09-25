@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI, Type } from '@google/genai';
+import { ApiError, GenerateContentParameters, GoogleGenAI, Type } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,6 +12,42 @@ const supabase = createClient(
 
 // Initialize Gemini SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// gemini-2.5-flash va in dismissione (shutdown da ottobre 2026).
+// Nota Gemini 3: Google sconsiglia di impostare temperature/top_p/top_k
+// (lasciare i default); il thinking level di default è "medium".
+// Il primo modello è quello preferito; il secondo è una riserva usata solo
+// se il primo è sovraccarico (503 "high demand", frequente sul free tier).
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash'];
+const ATTEMPTS_PER_MODEL = 2;
+const RETRY_DELAY_MS = 3000;
+
+// Errori temporanei lato Google per cui ha senso riprovare.
+function isTransientError(e: unknown) {
+  return e instanceof ApiError && [429, 500, 503, 504].includes(e.status);
+}
+
+async function generateWithRetry(params: Omit<GenerateContentParameters, 'model'>) {
+  let lastError: unknown;
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+      try {
+        const response = await ai.models.generateContent({ ...params, model });
+        console.log(`Generated with ${model} (attempt ${attempt})`);
+        return response;
+      } catch (e) {
+        if (!isTransientError(e)) throw e;
+        lastError = e;
+        console.warn(`${model} attempt ${attempt} failed (${(e as ApiError).status}), retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+      }
+    }
+  }
+  throw new Error(
+    "I modelli AI di Google sono momentaneamente sovraccarichi e l'analisi non è riuscita. Riprova tra qualche minuto. (" +
+    (lastError instanceof Error ? lastError.message : String(lastError)) + ")"
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -85,50 +121,49 @@ Prima di valutare, decidi se la registrazione contiene davvero una conversazione
   Ogni osservazione deve riferirsi a qualcosa effettivamente presente nella trascrizione.`;
 
     console.log("Generating content...");
-    const response = await ai.models.generateContent({
-      // gemini-2.5-flash va in dismissione (shutdown da ottobre 2026).
-      // Nota Gemini 3: Google sconsiglia di impostare temperature/top_p/top_k
-      // (lasciare i default); il thinking level di default è "medium".
-      model: 'gemini-3.8-flash',
-      config: {
-        responseMimeType: "application/json",
-        // La trascrizione viene generata per prima: così la valutazione
-        // poggia su ciò che è stato effettivamente detto, invece di essere
-        // prodotta prima e "giustificata" da una trascrizione inventata.
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            transcript: { type: Type.STRING },
-            valutabile: { type: Type.BOOLEAN },
-            score: { type: Type.INTEGER, nullable: true },
-            feedback: { type: Type.STRING },
-          },
-          required: ['transcript', 'valutabile', 'score', 'feedback'],
-          propertyOrdering: ['transcript', 'valutabile', 'score', 'feedback'],
-        },
-        // La trascrizione integrale di una chiamata fino a 90 minuti può
-        // essere lunga: alziamo il tetto di output per ridurre il rischio
-        // di troncamento JSON (max supportato da gemini-3.8-flash; include
-        // anche i token di "thinking").
-        maxOutputTokens: 65536,
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            { fileData: { fileUri: fileInfo.uri!, mimeType: fileInfo.mimeType || mimeType } }
-          ]
-        }
-      ]
-    });
-
-    // Cleanup
-    fs.unlinkSync(tmpPath);
+    let response;
     try {
-      await ai.files.delete({ name: fileInfo.name! });
-    } catch (e) {
-      console.warn("Could not delete file from Google AI", e);
+      response = await generateWithRetry({
+        config: {
+          responseMimeType: "application/json",
+          // La trascrizione viene generata per prima: così la valutazione
+          // poggia su ciò che è stato effettivamente detto, invece di essere
+          // prodotta prima e "giustificata" da una trascrizione inventata.
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              transcript: { type: Type.STRING },
+              valutabile: { type: Type.BOOLEAN },
+              score: { type: Type.INTEGER, nullable: true },
+              feedback: { type: Type.STRING },
+            },
+            required: ['transcript', 'valutabile', 'score', 'feedback'],
+            propertyOrdering: ['transcript', 'valutabile', 'score', 'feedback'],
+          },
+          // La trascrizione integrale di una chiamata fino a 90 minuti può
+          // essere lunga: alziamo il tetto di output per ridurre il rischio
+          // di troncamento JSON (max supportato da gemini-3.8/3.6-flash; include
+          // anche i token di "thinking").
+          maxOutputTokens: 65536,
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              { fileData: { fileUri: fileInfo.uri!, mimeType: fileInfo.mimeType || mimeType } }
+            ]
+          }
+        ]
+      });
+    } finally {
+      // Cleanup anche se la generazione fallisce (es. modelli sovraccarichi)
+      fs.unlinkSync(tmpPath);
+      try {
+        await ai.files.delete({ name: fileInfo.name! });
+      } catch (e) {
+        console.warn("Could not delete file from Google AI", e);
+      }
     }
 
     let resultJson: { score: number | null; feedback: string; transcript: string | null; valutabile?: boolean } = {
