@@ -8,9 +8,11 @@ export interface ArchiveViewProps {
   isLoading: boolean;
   onBack: () => void;
   onDelete: (id: string, filePath: string) => void;
+  onRetry: (id: string) => void;
+  retryingId: string | null;
 }
 
-export default function ArchiveView({ data, isLoading, onBack, onDelete }: ArchiveViewProps) {
+export default function ArchiveView({ data, isLoading, onBack, onDelete, onRetry, retryingId }: ArchiveViewProps) {
   return (
     <main className={styles.container}>
       <header className={styles.header}>
@@ -25,7 +27,13 @@ export default function ArchiveView({ data, isLoading, onBack, onDelete }: Archi
           <p>Nessuna analisi salvata.</p>
         ) : (
           data.map((item) => (
-            <AnalysisCard key={item.id} item={item} onDelete={onDelete} />
+            <AnalysisCard
+              key={item.id}
+              item={item}
+              onDelete={onDelete}
+              onRetry={onRetry}
+              isRetrying={retryingId === item.id}
+            />
           ))
         )}
       </div>

@@ -17,6 +17,38 @@ export default function Home() {
   const [archiveData, setArchiveData] = useState<AnalysisItem[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
 
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  // Chiede al server di analizzare una trattativa già in archivio e
+  // restituisce la riga aggiornata. Se la richiesta stessa fallisce (es. rete
+  // assente), la trattativa resta "pending" e ci penseranno i tentativi
+  // automatici.
+  const runAnalysis = async (item: AnalysisItem): Promise<AnalysisItem> => {
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+      return result;
+    } catch (err: unknown) {
+      console.error("Analysis request error", err);
+      return { ...item, status: "pending" };
+    }
+  };
+
+  const retryAnalysis = async (id: string) => {
+    const item = archiveData.find((a) => a.id === id) ?? (analysisResult?.id === id ? analysisResult : null);
+    if (!item) return;
+    setRetryingId(id);
+    const updated = await runAnalysis(item);
+    setArchiveData((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    setAnalysisResult((prev) => (prev?.id === id ? updated : prev));
+    setRetryingId(null);
+  };
+
   const handleUpload = async (audioBlob: Blob) => {
     if (!supabase) {
       alert("Supabase non configurato. Aggiungi le variabili in .env.local");
@@ -38,23 +70,19 @@ export default function Home() {
 
       if (error) throw error;
 
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: data.path, contextNotes: notes }),
-      });
+      // La trattativa entra in archivio subito, prima dell'analisi: se
+      // l'analisi fallisce (es. modelli AI sovraccarichi) resta "pending" e
+      // viene ritentata automaticamente, senza perdere la registrazione.
+      const { data: row, error: insertError } = await supabase
+        .from("analyses")
+        .insert([{ file_path: data.path, context_notes: notes || null, status: "pending" }])
+        .select("*")
+        .single();
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
-
-      setAnalysisResult({
-        file_path: data.path,
-        feedback: result.feedback,
-        score: result.score,
-        transcript: result.transcript || null,
-        context_notes: notes || null,
-      });
+      if (insertError) throw insertError;
       setNotes("");
+
+      setAnalysisResult(await runAnalysis(row));
     } catch (err: unknown) {
       console.error("Upload/Analysis error", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -113,6 +141,8 @@ export default function Home() {
         isLoading={isLoadingArchive}
         onBack={() => setShowArchive(false)}
         onDelete={deleteAnalysis}
+        onRetry={retryAnalysis}
+        retryingId={retryingId}
       />
     );
   }
@@ -146,7 +176,11 @@ export default function Home() {
 
           {analysisResult && (
             <div className={styles.resultWrapper}>
-              <AnalysisCard item={analysisResult} />
+              <AnalysisCard
+                item={analysisResult}
+                onRetry={retryAnalysis}
+                isRetrying={retryingId === analysisResult.id}
+              />
             </div>
           )}
         </div>

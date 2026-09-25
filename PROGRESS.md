@@ -31,6 +31,14 @@ in `src/app/api/analyze/route.ts`:
   `gemini-3.8-flash` e poi 2 su `gemini-3.6-flash` (solo per errori
   429/500/503/504, con attesa crescente), e i file temporanei vengono
   ripuliti anche in caso di errore.
+- **Nessuna trattativa persa se l'analisi fallisce.** La riga `analyses`
+  viene creata subito dopo l'upload (`pending`); se l'analisi fallisce resta
+  in archivio con stato visibile e "Riprova ora", e un job pg_cron su
+  Supabase chiama `/api/retry-pending` ogni 10 minuti per 24 ore (poi
+  `failed`). Richiede `supabase_update_v3.sql` (parte 1 prima del deploy,
+  parte 2 con il secret) e `CRON_SECRET` su Vercel. Dettaglio in
+  `OVERVIEW.md` → Backend. Un job elabora una sola trattativa per volta:
+  con molte trattative in coda lo smaltimento è di ~6 all'ora.
 - **Da verificare dopo il deploy**: test con un "ciao" (deve risultare non
   valutabile) e con una trattativa reale/simulata (deve essere valutata).
 Nessuna migrazione DB necessaria (`score` era già nullable, la UI nasconde

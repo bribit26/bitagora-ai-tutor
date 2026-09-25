@@ -39,9 +39,30 @@ Supabase per l'archivio). Compone questi pezzi:
 - **`src/lib/supabase.ts`**: client Supabase (anon key), `null` se le env
   var non sono configurate (per non far crashare la build).
 
-## Backend (`src/app/api/analyze/route.ts`)
+## Backend
 
-Unico endpoint API. Riceve `{filePath, contextNotes}`:
+La logica sta in `src/lib/analysisJob.ts`, usata da due endpoint:
+
+- `POST /api/analyze` `{id}` — analizza una trattativa già in `analyses`
+  (dopo la registrazione o da "Riprova ora") e restituisce la riga
+  aggiornata. Accetta anche il vecchio `{filePath, contextNotes}` (PWA in
+  cache) creando lei la riga.
+- `POST /api/retry-pending` — chiamato ogni 10 minuti da pg_cron + pg_net
+  su Supabase con header `Authorization: Bearer $CRON_SECRET`. Risponde 202
+  subito e, in `after()`, marca `failed` le `pending` più vecchie di 24h e
+  rianalizza **una** trattativa: `pending` entro 24h oppure `processing`
+  bloccata da più di 15 minuti, scegliendo quella tentata meno di recente.
+
+Stati della riga: `pending` → `processing` → `done`, oppure di nuovo
+`pending` se fallisce (`attempts` +1, `last_error`), `failed` dopo 24h. La
+presa in carico è ottimistica (update condizionato su `status` e
+`processing_started_at`), così analisi manuale e job non lavorano mai in
+parallelo sulla stessa riga.
+
+Chiamata a Gemini (`generateWithRetry`): 2 tentativi su `gemini-3.8-flash`
+e poi 2 su `gemini-3.6-flash`, solo per errori temporanei 429/500/503/504.
+
+Passi di `analyzeRecording(filePath, contextNotes)`:
 
 1. Scarica l'audio da Supabase Storage.
 2. Lo carica sulla Google GenAI File API (polling finché lo stato non è
@@ -62,19 +83,23 @@ Unico endpoint API. Riceve `{filePath, contextNotes}`:
    comunque via `dangerouslySetInnerHTML` — mentre `transcript` resta
    `null`. Non è un fallback "pulito": l'analisi non va in errore HTTP, ma
    voto e feedback non sono realmente utilizzabili in quel caso.
-6. Salva tutto in Supabase (`analyses`: `file_path`, `feedback`, `score`,
-   `context_notes`, `transcript`) e lo restituisce al frontend.
+6. Restituisce `{score, feedback, transcript}`; `processAnalysis` li salva
+   nella riga con `status: 'done'`.
 
 ## Database (Supabase)
 
-Tabella `public.analyses`: `id`, `created_at`, `file_path`, `feedback`,
-`score`, `context_notes` (nullable), `transcript` (nullable). RLS aperta al
-ruolo `anon` per insert/select/delete (nessuna autenticazione utente, vedi
+Tabella `public.analyses`: `id`, `created_at`, `file_path`, `feedback`
+(nullable finché l'analisi non è `done`), `score`, `context_notes`
+(nullable), `transcript` (nullable), `status` (default `done`), `attempts`,
+`last_error`, `processing_started_at`. RLS aperta al ruolo `anon` per
+insert/select/update/delete (nessuna autenticazione utente, vedi
 `PROGRESS.md`). Bucket storage `recordings`, privato: accesso solo tramite
 URL firmati generati al volo (upload/download/lettura), mai reso pubblico.
 
 Migrazioni, da applicare manualmente in ordine su SQL Editor:
-`supabase_setup.sql` → `supabase_update.sql` → `supabase_update_v2.sql`.
+`supabase_setup.sql` → `supabase_update.sql` → `supabase_update_v2.sql` →
+`supabase_update_v3.sql` (stato analisi + job pg_cron `retry-pending-analyses`;
+il secret nel job va sostituito a mano, non è versionato).
 
 ## Come nasce un'analisi, passo per passo
 
@@ -84,11 +109,13 @@ Migrazioni, da applicare manualmente in ordine su SQL Editor:
    (`NotesOverlay`) senza interrompere la registrazione.
 3. "Termina" → `useRecorder` chiude il `MediaRecorder`, produce il blob, e
    chiama `onRecordingComplete` (= `handleUpload` in `page.tsx`).
-4. `handleUpload` carica il blob su Supabase Storage, poi chiama
-   `POST /api/analyze` con `filePath` + le note correnti.
-5. Il risultato (`score`, `feedback`, `transcript`) torna al frontend,
-   `page.tsx` lo unisce a `file_path` e alle note per costruire l'oggetto
-   `AnalysisItem` mostrato in `AnalysisCard`.
+4. `handleUpload` carica il blob su Supabase Storage, crea la riga in
+   `analyses` (`status: 'pending'`, note incluse), poi chiama
+   `POST /api/analyze` con l'`id` della riga (`runAnalysis`).
+5. La riga aggiornata torna al frontend ed è mostrata in `AnalysisCard`:
+   se non è `done`, la card mostra lo stato e (per `pending`/`failed`) il
+   pulsante "Riprova ora" (`retryAnalysis`). Se la richiesta stessa fallisce
+   (rete), la card mostra `pending` e ci pensa il job automatico.
 6. In Archivio, `loadArchive()` fa una `select *` su `analyses` e passa i
    risultati (già nella forma `AnalysisItem`, colonne comprese) ad
    `ArchiveView`.

@@ -35,18 +35,23 @@ npm run lint
 ```
 
 Richiede `.env.local` con `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` (non versionato, chiedere a Daniele).
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` (non versionato, chiedere a Daniele). In
+produzione (Vercel) serve anche `CRON_SECRET`, lo stesso valore usato dal job
+pg_cron in `supabase_update_v3.sql`.
 
 Le migrazioni SQL (`supabase_setup.sql`, `supabase_update.sql`,
-`supabase_update_v2.sql`) vanno applicate manualmente da SQL Editor su
+`supabase_update_v2.sql`, `supabase_update_v3.sql`) vanno applicate manualmente da SQL Editor su
 Supabase — non c'è un sistema di migrazioni automatico.
 
 ## Flusso principale
 
-Registra → upload diretto su Supabase Storage → `/api/analyze` scarica
-l'audio, lo carica su Google GenAI File API, un'unica chiamata Gemini
-restituisce punteggio + feedback + trascrizione → tutto salvato in
-`analyses` → mostrato nella card risultato e, in seguito, nell'Archivio.
+Registra → upload diretto su Supabase Storage → riga `analyses` creata
+subito in stato `pending` → `/api/analyze` scarica l'audio, lo carica su
+Google GenAI File API, un'unica chiamata Gemini restituisce punteggio +
+feedback + trascrizione → riga aggiornata a `done` → mostrata nella card
+risultato e nell'Archivio. Se l'analisi fallisce la riga resta `pending` e
+un job pg_cron su Supabase chiama `/api/retry-pending` ogni 10 minuti per
+24 ore (poi `failed`, con "Riprova ora" manuale).
 Dettaglio completo in `OVERVIEW.md`.
 
 ## Convenzioni

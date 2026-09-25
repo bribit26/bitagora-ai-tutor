@@ -8,15 +8,31 @@ export interface AnalysisItem {
   id?: string;
   created_at?: string;
   file_path: string;
-  feedback: string;
+  feedback: string | null;
   score: number | null;
   context_notes?: string | null;
   transcript?: string | null;
+  // Assente sulle righe create prima dei nuovi tentativi automatici = "done"
+  status?: 'pending' | 'processing' | 'done' | 'failed';
+  attempts?: number;
 }
 
 export interface AnalysisCardProps {
   item: AnalysisItem;
   onDelete?: (id: string, filePath: string) => void;
+  onRetry?: (id: string) => void;
+  isRetrying?: boolean;
+}
+
+function statusMessage(item: AnalysisItem, isRetrying?: boolean) {
+  if (isRetrying || item.status === 'processing') {
+    return "⏳ Analisi AI in corso...";
+  }
+  if (item.status === 'pending') {
+    const attempts = item.attempts ? ` Tentativi finora: ${item.attempts}.` : '';
+    return `⏳ Analisi non ancora completata (i modelli AI potrebbero essere sovraccarichi). La registrazione è salvata: l'analisi viene ritentata automaticamente ogni 10 minuti per 24 ore.${attempts}`;
+  }
+  return "⚠️ Analisi non riuscita dopo 24 ore di tentativi automatici. La registrazione è salvata: puoi riprovare manualmente.";
 }
 
 function getScoreColor(score: number | null) {
@@ -26,7 +42,10 @@ function getScoreColor(score: number | null) {
   return '#f44336';
 }
 
-export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
+export default function AnalysisCard({ item, onDelete, onRetry, isRetrying }: AnalysisCardProps) {
+  const isDone = !item.status || item.status === 'done';
+  const canRetry = !!onRetry && !!item.id && !isRetrying && (item.status === 'pending' || item.status === 'failed');
+
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
@@ -52,6 +71,7 @@ export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
     : new Date().toISOString().split('T')[0];
 
   const downloadFeedback = () => {
+    if (!item.feedback) return;
     const blob = new Blob([item.feedback], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -99,7 +119,16 @@ export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
         </div>
       )}
 
-      <div className={styles.markdownContent} dangerouslySetInnerHTML={{ __html: item.feedback.replace(/\n/g, '<br/>') }}></div>
+      {isDone && item.feedback ? (
+        <div className={styles.markdownContent} dangerouslySetInnerHTML={{ __html: item.feedback.replace(/\n/g, '<br/>') }}></div>
+      ) : !isDone ? (
+        <div className={styles.statusBox}>
+          <p>{statusMessage(item, isRetrying)}</p>
+          {canRetry && (
+            <button onClick={() => onRetry!(item.id!)} className={styles.actionBtn}>🔄 Riprova ora</button>
+          )}
+        </div>
+      ) : null}
 
       {audioUrl && (
         <audio className={styles.audioPlayer} controls src={audioUrl}></audio>
@@ -110,7 +139,9 @@ export default function AnalysisCard({ item, onDelete }: AnalysisCardProps) {
         {item.transcript && (
           <button onClick={downloadTranscript} className={styles.actionBtn}>📄 Scarica trascrizione</button>
         )}
-        <button onClick={downloadFeedback} className={styles.actionBtn}>📥 Scarica report</button>
+        {isDone && item.feedback && (
+          <button onClick={downloadFeedback} className={styles.actionBtn}>📥 Scarica report</button>
+        )}
         {onDelete && item.id && (
           <button onClick={() => onDelete(item.id!, item.file_path)} className={styles.deleteBtn}>🗑️ Elimina</button>
         )}
