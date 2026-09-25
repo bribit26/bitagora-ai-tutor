@@ -6,7 +6,8 @@ import { retryNextPending } from '@/lib/analysisJob';
 // (after) una trattativa in attesa, così la chiamata da Supabase non deve
 // restare aperta per tutta la durata dell'analisi.
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
+  // trim: incollando il valore su Vercel è facile includere spazi o un a capo
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
